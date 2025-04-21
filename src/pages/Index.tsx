@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ConnectionForm } from "@/components/ConnectionForm";
 import { TableSelector } from "@/components/TableSelector";
@@ -74,6 +73,24 @@ const Index = () => {
     }
   };
 
+  // Disconnect from Retool
+  const handleRetoolDisconnect = () => {
+    setRetool({
+      connectionString: "",
+      isConnected: false,
+      tables: [],
+      selectedTable: null,
+      loading: false,
+      error: null,
+    });
+    setRetoolData({
+      columns: [],
+      rows: [],
+      loading: false,
+      error: null,
+    });
+  };
+
   // Connect to Supabase
   const handleSupabaseConnect = async (connectionString: string) => {
     setSupabase(prev => ({ ...prev, loading: true, error: null }));
@@ -94,6 +111,24 @@ const Index = () => {
         error: error instanceof Error ? error.message : "Failed to connect to Supabase" 
       }));
     }
+  };
+
+  // Disconnect from Supabase
+  const handleSupabaseDisconnect = () => {
+    setSupabase({
+      connectionString: "",
+      isConnected: false,
+      tables: [],
+      selectedTable: null,
+      loading: false,
+      error: null,
+    });
+    setSupabaseData({
+      columns: [],
+      rows: [],
+      loading: false,
+      error: null,
+    });
   };
 
   // Select Retool table
@@ -191,6 +226,7 @@ const Index = () => {
             <ConnectionForm 
               title="Retool Connection"
               onConnect={handleRetoolConnect}
+              onDisconnect={handleRetoolDisconnect}
               isConnected={retool.isConnected}
               loading={retool.loading}
               error={retool.error}
@@ -223,6 +259,7 @@ const Index = () => {
             <ConnectionForm
               title="Supabase Connection"
               onConnect={handleSupabaseConnect}
+              onDisconnect={handleSupabaseDisconnect}
               isConnected={supabase.isConnected}
               loading={supabase.loading}
               error={supabase.error}
