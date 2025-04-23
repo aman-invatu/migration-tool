@@ -70,6 +70,11 @@ export const databaseApi = {
     const response = await api.post('/database/migrate', { sourceTable, targetTable });
     return response.data;
   },
+
+  getMigrationProgress: async () => {
+    const response = await api.get('/database/migration-progress');
+    return response.data;
+  }
 };
 
 export default api; 

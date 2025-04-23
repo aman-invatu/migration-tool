@@ -200,6 +200,8 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
       const response = await databaseApi.getRetoolTablePreview(tableName);
       if (response.success) {
         setRetoolTableData(response.data);
+        console.log(`Selected Retool table: ${tableName}`);
+        console.log(`Total records in preview: ${response.data.length}`);
       }
     } catch (error) {
       console.error(error);
