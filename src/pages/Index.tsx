@@ -1,312 +1,291 @@
-import { useState } from "react";
-import { ConnectionForm } from "@/components/ConnectionForm";
-import { TableSelector } from "@/components/TableSelector";
-import { DataPreview } from "@/components/DataPreview";
-import { MigrationButton } from "@/components/MigrationButton";
-import { connectToRetool, connectToSupabase, getTableData, migrateData } from "@/utils/databaseUtils";
-import { ConnectionConfig, TableData, MigrationState } from "@/types/database";
-import { Separator } from "@/components/ui/separator";
+
+import React, { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import DatabaseConnection from '@/components/DatabaseConnection';
+import TableSelector from '@/components/TableSelector';
+import DataPreview from '@/components/DataPreview';
+import MigrationControls from '@/components/MigrationControls';
+import { databaseService } from '@/services/databaseService';
+
+interface DataItem {
+  [key: string]: any;
+}
 
 const Index = () => {
-  // Retool state
-  const [retool, setRetool] = useState<ConnectionConfig>({
-    connectionString: "",
-    isConnected: false,
-    tables: [],
-    selectedTable: null,
-    loading: false,
-    error: null,
-  });
+  const { toast } = useToast();
 
-  // Supabase state
-  const [supabase, setSupabase] = useState<ConnectionConfig>({
-    connectionString: "",
-    isConnected: false,
-    tables: [],
-    selectedTable: null,
-    loading: false,
-    error: null,
-  });
+  // Retool (Source) state
+  const [isRetoolConnecting, setIsRetoolConnecting] = useState(false);
+  const [isRetoolConnected, setIsRetoolConnected] = useState(false);
+  const [retoolTables, setRetoolTables] = useState<string[]>([]);
+  const [selectedRetoolTable, setSelectedRetoolTable] = useState<string | null>(null);
+  const [retoolData, setRetoolData] = useState<DataItem[]>([]);
+  const [isRetoolDataLoading, setIsRetoolDataLoading] = useState(false);
 
-  // Table data state
-  const [retoolData, setRetoolData] = useState<TableData>({
-    columns: [],
-    rows: [],
-    loading: false,
-    error: null,
-  });
-
-  const [supabaseData, setSupabaseData] = useState<TableData>({
-    columns: [],
-    rows: [],
-    loading: false,
-    error: null,
-  });
+  // Supabase (Target) state
+  const [isSupabaseConnecting, setIsSupabaseConnecting] = useState(false);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+  const [supabaseTables, setSupabaseTables] = useState<string[]>([]);
+  const [selectedSupabaseTable, setSelectedSupabaseTable] = useState<string | null>(null);
+  const [supabaseData, setSupabaseData] = useState<DataItem[]>([]);
+  const [isSupabaseDataLoading, setIsSupabaseDataLoading] = useState(false);
 
   // Migration state
-  const [migration, setMigration] = useState<MigrationState>({
-    inProgress: false,
-    completed: false,
-    error: null,
-    rowsMigrated: 0,
-  });
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<number | null>(null);
 
-  // Connect to Retool
+  // Handle Retool connection
   const handleRetoolConnect = async (connectionString: string) => {
-    setRetool(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const tables = await connectToRetool(connectionString);
-      setRetool({
-        connectionString,
-        isConnected: true,
-        tables,
-        selectedTable: null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      setRetool(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: error instanceof Error ? error.message : "Failed to connect to Retool" 
-      }));
-    }
-  };
-
-  // Disconnect from Retool
-  const handleRetoolDisconnect = () => {
-    setRetool({
-      connectionString: "",
-      isConnected: false,
-      tables: [],
-      selectedTable: null,
-      loading: false,
-      error: null,
-    });
-    setRetoolData({
-      columns: [],
-      rows: [],
-      loading: false,
-      error: null,
-    });
-  };
-
-  // Connect to Supabase
-  const handleSupabaseConnect = async (connectionString: string) => {
-    setSupabase(prev => ({ ...prev, loading: true, error: null }));
-    try {
-      const tables = await connectToSupabase(connectionString);
-      setSupabase({
-        connectionString,
-        isConnected: true,
-        tables,
-        selectedTable: null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      setSupabase(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: error instanceof Error ? error.message : "Failed to connect to Supabase" 
-      }));
-    }
-  };
-
-  // Disconnect from Supabase
-  const handleSupabaseDisconnect = () => {
-    setSupabase({
-      connectionString: "",
-      isConnected: false,
-      tables: [],
-      selectedTable: null,
-      loading: false,
-      error: null,
-    });
-    setSupabaseData({
-      columns: [],
-      rows: [],
-      loading: false,
-      error: null,
-    });
-  };
-
-  // Select Retool table
-  const handleRetoolTableSelect = async (tableName: string) => {
-    setRetool(prev => ({ ...prev, selectedTable: tableName }));
-    setRetoolData(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const data = await getTableData('retool', retool.connectionString, tableName);
-      setRetoolData({
-        columns: data.columns,
-        rows: data.rows,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      setRetoolData(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : "Failed to load table data",
-      }));
-    }
-  };
-
-  // Select Supabase table
-  const handleSupabaseTableSelect = async (tableName: string) => {
-    setSupabase(prev => ({ ...prev, selectedTable: tableName }));
-    setSupabaseData(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const data = await getTableData('supabase', supabase.connectionString, tableName);
-      setSupabaseData({
-        columns: data.columns,
-        rows: data.rows,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      setSupabaseData(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : "Failed to load table data",
-      }));
-    }
-  };
-
-  // Migrate data
-  const handleMigration = async () => {
-    if (!retool.selectedTable || !supabase.selectedTable) return;
-    
-    setMigration(prev => ({ ...prev, inProgress: true, completed: false, error: null }));
-    
-    try {
-      const rowsMigrated = await migrateData(
-        retool.connectionString,
-        retool.selectedTable,
-        supabase.connectionString,
-        supabase.selectedTable
-      );
+      setIsRetoolConnecting(true);
+      const tables = await databaseService.connectToDatabase('retool', connectionString);
       
-      setMigration({
-        inProgress: false,
-        completed: true,
-        error: null,
-        rowsMigrated,
+      if (tables === false) {
+        toast({
+          title: "Connection Failed",
+          description: "Failed to connect to Retool database. Please check your connection string.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      setRetoolTables(tables);
+      setIsRetoolConnected(true);
+      toast({
+        title: "Connected to Retool Database",
+        description: `Found ${tables.length} tables`,
       });
-    } catch (error) {
-      setMigration(prev => ({
-        ...prev,
-        inProgress: false,
-        completed: true,
-        error: error instanceof Error ? error.message : "Failed to migrate data",
-        rowsMigrated: 0,
-      }));
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Connection Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsRetoolConnecting(false);
     }
   };
 
-  // Check if migration is ready
-  const isMigrationReady = retool.isConnected && 
-                           supabase.isConnected && 
-                           retool.selectedTable && 
-                           supabase.selectedTable;
+  // Handle Supabase connection
+  const handleSupabaseConnect = async (connectionString: string) => {
+    try {
+      setIsSupabaseConnecting(true);
+      const tables = await databaseService.connectToDatabase('supabase', connectionString);
+      
+      if (tables === false) {
+        toast({
+          title: "Connection Failed",
+          description: "Failed to connect to Supabase database. Please check your connection string.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      setSupabaseTables(tables);
+      setIsSupabaseConnected(true);
+      toast({
+        title: "Connected to Supabase Database",
+        description: `Found ${tables.length} tables`,
+      });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Connection Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsSupabaseConnecting(false);
+    }
+  };
+
+  // Handle Retool table selection
+  const handleRetoolTableSelect = async (tableName: string) => {
+    setSelectedRetoolTable(tableName);
+    setIsRetoolDataLoading(true);
+    try {
+      const data = await databaseService.getTableData('retool', tableName);
+      setRetoolData(data);
+      toast({
+        title: "Table Selected",
+        description: `Loaded preview data from ${tableName}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to load table data",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRetoolDataLoading(false);
+    }
+  };
+
+  // Handle Supabase table selection
+  const handleSupabaseTableSelect = async (tableName: string) => {
+    setSelectedSupabaseTable(tableName);
+    setIsSupabaseDataLoading(true);
+    try {
+      const data = await databaseService.getTableData('supabase', tableName);
+      setSupabaseData(data);
+      toast({
+        title: "Table Selected",
+        description: `Loaded preview data from ${tableName}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to load table data",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSupabaseDataLoading(false);
+    }
+  };
+
+  // Handle migration
+  const handleMigration = async () => {
+    if (!selectedRetoolTable || !selectedSupabaseTable) {
+      toast({
+        title: "Migration Error",
+        description: "Please select both source and target tables",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsMigrating(true);
+    setMigrationProgress(0);
+
+    try {
+      const result = await databaseService.migrateData(
+        selectedRetoolTable,
+        selectedSupabaseTable,
+        (progress) => setMigrationProgress(progress)
+      );
+
+      if (result.success) {
+        toast({
+          title: "Migration Successful",
+          description: `Migrated ${result.recordsCount} records to ${selectedSupabaseTable}`,
+        });
+        
+        // Refresh Supabase data to show the migrated records
+        const updatedData = await databaseService.getTableData('supabase', selectedSupabaseTable);
+        setSupabaseData(updatedData);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Migration Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsMigrating(false);
+      setMigrationProgress(null);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-          Database Migration Tool
-        </h1>
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Left Side - Retool */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-blue-600">Source: Retool</h2>
-            <ConnectionForm 
-              title="Retool Connection"
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-retool to-supabase bg-clip-text text-transparent">Data Migration Tool</h1>
+          <p className="text-muted-foreground">
+            Connect to source and target databases, select tables, and migrate data seamlessly
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Source (Retool) Column */}
+          <div className="space-y-6 rounded-lg border border-gray-200 shadow-sm p-6 bg-white">
+            <h2 className="text-xl font-semibold text-retool flex items-center">
+              <span className="bg-retool rounded-full w-2 h-2 mr-2"></span>
+              Source Database (Retool)
+            </h2>
+            <DatabaseConnection
+              title="Retool Database"
+              colorClass="from-retool to-retool-light"
               onConnect={handleRetoolConnect}
-              onDisconnect={handleRetoolDisconnect}
-              isConnected={retool.isConnected}
-              loading={retool.loading}
-              error={retool.error}
-              primaryColor="blue"
+              isConnected={isRetoolConnected}
+              isLoading={isRetoolConnecting}
             />
-            
-            {retool.isConnected && (
-              <TableSelector
-                title="Select Retool Table"
-                tables={retool.tables}
-                selectedTable={retool.selectedTable}
-                onSelectTable={handleRetoolTableSelect}
-                disabled={!retool.isConnected}
-                primaryColor="blue"
-              />
-            )}
-            
-            {retool.selectedTable && (
-              <DataPreview
-                title={`Retool Data: ${retool.selectedTable}`}
-                data={retoolData}
-                primaryColor="blue"
-              />
+
+            {isRetoolConnected && (
+              <>
+                <TableSelector
+                  tables={retoolTables}
+                  selectedTable={selectedRetoolTable}
+                  onTableSelect={handleRetoolTableSelect}
+                  isLoading={isRetoolConnecting}
+                  colorClass="text-retool"
+                />
+
+                {selectedRetoolTable && (
+                  <DataPreview
+                    title="Retool Table"
+                    data={retoolData}
+                    isLoading={isRetoolDataLoading}
+                    colorClass="bg-retool text-white"
+                  />
+                )}
+              </>
             )}
           </div>
-          
-          {/* Right Side - Supabase */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-purple-600">Target: Supabase</h2>
-            <ConnectionForm
-              title="Supabase Connection"
+
+          {/* Target (Supabase) Column */}
+          <div className="space-y-6 rounded-lg border border-gray-200 shadow-sm p-6 bg-white">
+            <h2 className="text-xl font-semibold text-supabase flex items-center">
+              <span className="bg-supabase rounded-full w-2 h-2 mr-2"></span>
+              Target Database (Supabase)
+            </h2>
+            <DatabaseConnection
+              title="Supabase Database"
+              colorClass="from-supabase to-supabase-light"
               onConnect={handleSupabaseConnect}
-              onDisconnect={handleSupabaseDisconnect}
-              isConnected={supabase.isConnected}
-              loading={supabase.loading}
-              error={supabase.error}
-              primaryColor="purple"
+              isConnected={isSupabaseConnected}
+              isLoading={isSupabaseConnecting}
             />
-            
-            {supabase.isConnected && (
-              <TableSelector
-                title="Select Supabase Table"
-                tables={supabase.tables}
-                selectedTable={supabase.selectedTable}
-                onSelectTable={handleSupabaseTableSelect}
-                disabled={!supabase.isConnected}
-                primaryColor="purple"
-              />
-            )}
-            
-            {supabase.selectedTable && (
-              <DataPreview
-                title={`Supabase Data: ${supabase.selectedTable}`}
-                data={supabaseData}
-                primaryColor="purple"
-              />
+
+            {isSupabaseConnected && (
+              <>
+                <TableSelector
+                  tables={supabaseTables}
+                  selectedTable={selectedSupabaseTable}
+                  onTableSelect={handleSupabaseTableSelect}
+                  isLoading={isSupabaseConnecting}
+                  colorClass="text-supabase"
+                />
+
+                {selectedSupabaseTable && (
+                  <DataPreview
+                    title="Supabase Table"
+                    data={supabaseData}
+                    isLoading={isSupabaseDataLoading}
+                    colorClass="bg-supabase text-white"
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
-        
-        {/* Migration Section */}
-        {(retool.isConnected || supabase.isConnected) && (
-          <div className="mt-8 max-w-md mx-auto">
-            <MigrationButton
+
+        {/* Migration Controls (Bottom) */}
+        {(isRetoolConnected && isSupabaseConnected) && (
+          <div className="mt-8">
+            <MigrationControls
               onMigrate={handleMigration}
-              disabled={!isMigrationReady}
-              state={migration}
+              isMigrating={isMigrating}
+              sourceTable={selectedRetoolTable}
+              targetTable={selectedSupabaseTable}
+              progress={migrationProgress}
             />
           </div>
         )}
-
-        {/* Help Text */}
-        <div className="mt-8 text-sm text-gray-500 max-w-2xl mx-auto text-center">
-          <p className="mb-2"><strong>How to use:</strong></p>
-          <p>1. Enter your Retool connection string (hint: include "retool" in the string for this demo)</p>
-          <p>2. Select a source table from Retool</p>
-          <p>3. Enter your Supabase connection string (hint: include "supabase" in the string for this demo)</p>
-          <p>4. Select a target table in Supabase</p>
-          <p>5. Click "Migrate Data" to transfer the data</p>
-        </div>
       </div>
     </div>
   );
