@@ -1,4 +1,3 @@
-
 // This is a mock service for simulating database operations
 // In a real application, you would use actual database connections
 
@@ -123,19 +122,23 @@ export const databaseService = {
     targetTable: string, 
     onProgressUpdate: (progress: number) => void
   ) => {
-    // Estimate the number of records to migrate
-    const recordsCount = Math.floor(Math.random() * 100) + 20; // 20-120 records for demo
+    // Simulate total records
+    const totalCount = 8000; // Simulating more than 5000 records
+    const migratedCount = 5000; // We only migrate 5000 at a time
     
     // Simulate migration process with progress updates
     for (let i = 0; i < 10; i++) {
       await delay(500);
-      const progress = Math.round(((i + 1) / 10) * 100);
+      const progress = Math.round(((i + 1) / 10) * (migratedCount / totalCount * 100));
       onProgressUpdate(progress);
     }
     
     return {
       success: true,
-      recordsCount
+      message: `Migrated ${migratedCount} out of ${totalCount} records`,
+      migratedCount,
+      totalCount,
+      hasMoreData: migratedCount < totalCount
     };
   }
 };

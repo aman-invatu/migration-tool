@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -169,14 +168,24 @@ const Index = () => {
       );
 
       if (result.success) {
+        const progressPercentage = Math.round((result.migratedCount / result.totalCount) * 100);
+        setMigrationProgress(progressPercentage);
+        
         toast({
-          title: "Migration Successful",
-          description: `Migrated ${result.recordsCount} records to ${selectedSupabaseTable}`,
+          title: "Migration Progress",
+          description: `${result.message} (${progressPercentage}%)`,
         });
         
         // Refresh Supabase data to show the migrated records
         const updatedData = await databaseService.getTableData('supabase', selectedSupabaseTable);
         setSupabaseData(updatedData);
+
+        if (result.hasMoreData) {
+          toast({
+            title: "More Data Available",
+            description: "There are more records to migrate. Run the migration again to continue.",
+          });
+        }
       }
     } catch (error: any) {
       toast({
@@ -186,7 +195,6 @@ const Index = () => {
       });
     } finally {
       setIsMigrating(false);
-      setMigrationProgress(null);
     }
   };
 

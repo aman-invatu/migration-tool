@@ -27,6 +27,9 @@ export interface TablePreviewResponse {
 export interface MigrationResponse {
   success: boolean;
   message: string;
+  migratedCount?: number;
+  totalCount?: number;
+  hasMoreData?: boolean;
 }
 
 export const databaseApi = {
