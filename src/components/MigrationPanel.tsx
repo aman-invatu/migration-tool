@@ -10,13 +10,17 @@ const MigrationPanel: React.FC = () => {
     selectedRetoolTable,
     selectedSupabaseTable,
     migrateData,
-    isLoading
+    isLoading,
+    selectRetoolTable,
+    selectSupabaseTable
   } = useDatabase();
   
   const [migrationResult, setMigrationResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
+
+  const [isMigrationInProgress, setIsMigrationInProgress] = useState(false);
 
   const [progress, setProgress] = useState<{
     totalRecords: number;
@@ -26,12 +30,12 @@ const MigrationPanel: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isMigrationInProgress) {
       // Initial fetch
       fetchProgress();
       
       // Poll for progress every 20 seconds
-      intervalRef.current = setInterval(fetchProgress, 20000);
+      intervalRef.current = setInterval(fetchProgress, 10000);
     } else {
       // Clear progress when not loading
       setProgress(null);
@@ -43,7 +47,7 @@ const MigrationPanel: React.FC = () => {
         intervalRef.current = undefined;
       }
     };
-  }, [isLoading]);
+  }, [isMigrationInProgress]);
 
   const fetchProgress = async () => {
     try {
@@ -52,17 +56,26 @@ const MigrationPanel: React.FC = () => {
       if (response.isComplete && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = undefined;
+        setIsMigrationInProgress(false);
       }
     } catch (error) {
       console.error('Error fetching progress:', error);
+      setIsMigrationInProgress(false);
     }
   };
   
   const handleMigrate = async () => {
     setMigrationResult(null);
     setProgress(null);
+    setIsMigrationInProgress(true);
     const result = await migrateData();
     setMigrationResult(result);
+    
+    // Reset selected tables if migration was successful
+    if (result.success) {
+      selectRetoolTable('');
+      selectSupabaseTable('');
+    }
   };
   
   const canMigrate = retoolConnected && supabaseConnected && selectedRetoolTable && selectedSupabaseTable;
@@ -93,17 +106,17 @@ const MigrationPanel: React.FC = () => {
       
       <button
         onClick={handleMigrate}
-        disabled={!canMigrate || isLoading}
+        disabled={!canMigrate || isMigrationInProgress}
         className={`w-full py-2 px-4 rounded-md text-white ${
-          !canMigrate || isLoading
+          !canMigrate || isMigrationInProgress
             ? 'bg-gray-400 cursor-not-allowed'
             : 'bg-blue-600 hover:bg-blue-700'
         }`}
       >
-        {isLoading ? 'Migrating...' : 'Migrate Data'}
+        {isMigrationInProgress ? 'Migrating...' : 'Migrate Data'}
       </button>
 
-      {(isLoading || progress) && (
+      {(isMigrationInProgress || progress) && (
         <div className="mt-4">
           <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
             <span>Migration Progress</span>
@@ -128,7 +141,7 @@ const MigrationPanel: React.FC = () => {
         </div>
       )}
       
-      {migrationResult && !isLoading && (
+      {migrationResult && !isMigrationInProgress && (
         <div className={`mt-4 p-3 rounded-md ${
           migrationResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
